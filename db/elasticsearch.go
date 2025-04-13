@@ -10,23 +10,13 @@ var ElasticsearchClient *elasticsearch.Client
 
 func InitElasticsearch() {
     cfg := elasticsearch.Config{
-        Addresses: []string{
-            "http://localhost:9200", // Elasticsearch server address
-        },
+        Addresses: []string{"http://localhost:9200"},
     }
-
     client, err := elasticsearch.NewClient(cfg)
     if err != nil {
-        log.Fatalf("Error creating Elasticsearch client: %v", err)
+        log.Fatalf("Failed to create Elasticsearch client: %v", err)
     }
 
-    // Test the connection
-    res, err := client.Info()
-    if err != nil {
-        log.Fatalf("Error connecting to Elasticsearch: %v", err)
-    }
-    defer res.Body.Close()
-
-    log.Println("✅ Connected to Elasticsearch!")
     ElasticsearchClient = client
+    log.Println("✅ Elasticsearch initialized")
 }
