@@ -42,7 +42,7 @@ func getProductByID(c *gin.Context) {
 
 	// Cache the product in Redis with a 10-minute expiration
 	productJSON, _ := json.Marshal(product)
-	db.RedisClient.Set(ctx, cacheKey, productJSON, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, productJSON, 10*time.Minute)
 
 	// Return the product from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": product})
@@ -57,7 +57,7 @@ func getProductsByCategory(c *gin.Context) {
 
 	// Attempt to retrieve the products from Redis cache
 	cacheKey := "products:category:" + categoryID
-	cachedProducts, err := db.RedisClient.Get(ctx, cacheKey).Result()
+	cachedProducts, err := cache.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		// If cache hit, return the cached products
 		var products []models.Product
@@ -83,7 +83,7 @@ func getProductsByCategory(c *gin.Context) {
 
 	// Cache the products in Redis with a 10-minute expiration
 	productsJSON, _ := json.Marshal(products)
-	db.RedisClient.Set(ctx, cacheKey, productsJSON, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, productsJSON, 10*time.Minute)
 
 	// Return the products from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": products})
@@ -98,7 +98,7 @@ func getInventory(c *gin.Context) {
 
 	// Attempt to retrieve the inventory from Redis cache
 	cacheKey := "inventory:" + productID
-	cachedInventory, err := db.RedisClient.Get(ctx, cacheKey).Result()
+	cachedInventory, err := cache.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		// If cache hit, return the cached inventory
 		c.JSON(http.StatusOK, gin.H{"source": "cache", "data": cachedInventory})
@@ -114,7 +114,7 @@ func getInventory(c *gin.Context) {
 	}
 
 	// Cache the inventory in Redis with a 10-minute expiration
-	db.RedisClient.Set(ctx, cacheKey, product.CurrentInventory, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, product.CurrentInventory, 10*time.Minute)
 
 	// Return the inventory from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": product.CurrentInventory})
@@ -129,7 +129,7 @@ func getOrderByID(c *gin.Context) {
 
 	// Attempt to retrieve the order from Redis cache
 	cacheKey := "order:" + id
-	cachedOrder, err := db.RedisClient.Get(ctx, cacheKey).Result()
+	cachedOrder, err := cache.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		// If cache hit, return the cached order
 		var order models.Order
@@ -148,7 +148,7 @@ func getOrderByID(c *gin.Context) {
 
 	// Cache the order in Redis with a 10-minute expiration
 	orderJSON, _ := json.Marshal(order)
-	db.RedisClient.Set(ctx, cacheKey, orderJSON, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, orderJSON, 10*time.Minute)
 
 	// Return the order from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": order})
@@ -163,7 +163,7 @@ func getCustomerByID(c *gin.Context) {
 
 	// Attempt to retrieve the customer from Redis cache
 	cacheKey := "customer:" + id
-	cachedCustomer, err := db.RedisClient.Get(ctx, cacheKey).Result()
+	cachedCustomer, err := cache.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		// If cache hit, return the cached customer
 		var customer models.Customer
@@ -182,7 +182,7 @@ func getCustomerByID(c *gin.Context) {
 
 	// Cache the customer in Redis with a 10-minute expiration
 	customerJSON, _ := json.Marshal(customer)
-	db.RedisClient.Set(ctx, cacheKey, customerJSON, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, customerJSON, 10*time.Minute)
 
 	// Return the customer from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": customer})
@@ -197,7 +197,7 @@ func getCustomerOrders(c *gin.Context) {
 
 	// Attempt to retrieve the customer's orders from Redis cache
 	cacheKey := "customer:" + customerID + ":orders"
-	cachedOrders, err := db.RedisClient.Get(ctx, cacheKey).Result()
+	cachedOrders, err := cache.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		// If cache hit, return the cached orders
 		var orders []models.Order
@@ -223,7 +223,7 @@ func getCustomerOrders(c *gin.Context) {
 
 	// Cache the customer's orders in Redis with a 10-minute expiration
 	ordersJSON, _ := json.Marshal(orders)
-	db.RedisClient.Set(ctx, cacheKey, ordersJSON, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, ordersJSON, 10*time.Minute)
 
 	// Return the orders from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": orders})
