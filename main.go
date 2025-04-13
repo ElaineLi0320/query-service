@@ -17,7 +17,7 @@ import (
 
 func main() {
 	// Initialize connections
-	db.InitMongoDB()
+	db.InitMongo()
 	cache.InitRedis()
 	db.InitElasticsearch()
 
