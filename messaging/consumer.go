@@ -31,17 +31,16 @@ type EventHandler func(context.Context, interface{}) error
 // NewConsumer creates a new Kafka consumer
 func NewConsumer(brokers []string, topic, groupID string, retryConfig RetryConfig) *Consumer {
     reader := kafka.NewReader(kafka.ReaderConfig{
-        Brokers: brokers,
+        Brokers: []string{"localhost:9092"},
         Topic:   topic,
         GroupID: groupID,
-        // Increase read timeout to handle longer processing
-        ReadTimeout: 30 * time.Second,
+        // Set maximum wait time for new messages
+        MaxWait: 30 * time.Second,
     })
 
     // Setup DLQ writer
     dlqWriter := &kafka.Writer{
         Addr:         kafka.TCP(brokers...),
-        Topic:        topic + "-dlq",
         RequiredAcks: kafka.RequireAll,
     }
 
@@ -145,6 +144,7 @@ func (c *Consumer) processWithRetry(ctx context.Context, handler EventHandler, d
 
 // sendToDLQ sends a failed message to the Dead Letter Queue
 func (c *Consumer) sendToDLQ(msg kafka.Message, errorType, errorDetail string) {
+    msg.Topic = c.reader.Config().Topic + "-dlq"
     // Add error information to message headers
     msg.Headers = append(msg.Headers,
         kafka.Header{Key: "error_type", Value: []byte(errorType)},

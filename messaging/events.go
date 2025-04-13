@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"query-service/cache"
-	"query-service/db"
+	db "query-service/db"
 	"query-service/models"
 	"time"
 
