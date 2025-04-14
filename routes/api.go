@@ -8,10 +8,12 @@ import (
 	"query-service/cache"
 	"query-service/db"
 	"query-service/models"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // getProductByID retrieves a product by its ID, with Redis caching
@@ -48,27 +50,18 @@ func getProductByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": product})
 }
 
-// getProductsByCategory retrieves products by category ID, with Redis caching
+// getProductsByCategory retrieves products by category ID, with pagination
 func getProductsByCategory(c *gin.Context) {
 	categoryID := c.Param("categoryId")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "10"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Attempt to retrieve the products from Redis cache
-	cacheKey := "products:category:" + categoryID
-	cachedProducts, err := cache.RedisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// If cache hit, return the cached products
-		var products []models.Product
-		json.Unmarshal([]byte(cachedProducts), &products)
-		c.JSON(http.StatusOK, gin.H{"source": "cache", "data": products})
-		return
-	}
-
-	// If cache miss, query MongoDB
+	// Query MongoDB with pagination
 	var products []models.Product
-	cursor, err := db.ProductCollection.Find(ctx, bson.M{"category.id": categoryID})
+	cursor, err := db.ProductCollection.Find(ctx, bson.M{"category.id": categoryID}, options.Find().SetSkip(int64((page-1)*size)).SetLimit(int64(size)))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
@@ -81,12 +74,8 @@ func getProductsByCategory(c *gin.Context) {
 		products = append(products, product)
 	}
 
-	// Cache the products in Redis with a 10-minute expiration
-	productsJSON, _ := json.Marshal(products)
-	cache.RedisClient.Set(ctx, cacheKey, productsJSON, 10*time.Minute)
-
-	// Return the products from MongoDB
-	c.JSON(http.StatusOK, gin.H{"source": "database", "data": products})
+	// Return the products
+	c.JSON(http.StatusOK, gin.H{"data": products, "page": page, "size": size})
 }
 
 // getInventory retrieves the current inventory for a product, with Redis caching
@@ -188,27 +177,18 @@ func getCustomerByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": customer})
 }
 
-// getCustomerOrders retrieves a customer's order history, with Redis caching
+// getCustomerOrders retrieves a customer's order history, with pagination
 func getCustomerOrders(c *gin.Context) {
 	customerID := c.Param("customerId")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "10"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Attempt to retrieve the customer's orders from Redis cache
-	cacheKey := "customer:" + customerID + ":orders"
-	cachedOrders, err := cache.RedisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// If cache hit, return the cached orders
-		var orders []models.Order
-		json.Unmarshal([]byte(cachedOrders), &orders)
-		c.JSON(http.StatusOK, gin.H{"source": "cache", "data": orders})
-		return
-	}
-
-	// If cache miss, query MongoDB
+	// Query MongoDB with pagination
 	var orders []models.Order
-	cursor, err := db.OrderCollection.Find(ctx, bson.M{"customerId": customerID})
+	cursor, err := db.OrderCollection.Find(ctx, bson.M{"customerId": customerID}, options.Find().SetSkip(int64((page-1)*size)).SetLimit(int64(size)))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
 		return
@@ -221,26 +201,34 @@ func getCustomerOrders(c *gin.Context) {
 		orders = append(orders, order)
 	}
 
-	// Cache the customer's orders in Redis with a 10-minute expiration
-	ordersJSON, _ := json.Marshal(orders)
-	cache.RedisClient.Set(ctx, cacheKey, ordersJSON, 10*time.Minute)
-
-	// Return the orders from MongoDB
-	c.JSON(http.StatusOK, gin.H{"source": "database", "data": orders})
+	// Return the orders
+	c.JSON(http.StatusOK, gin.H{"data": orders, "page": page, "size": size})
 }
 
 // searchProducts searches for products using Elasticsearch
 func searchProducts(c *gin.Context) {
-	query := c.Query("q") // Get the search query from the request
+	query := c.Query("q")
+	categoryID := c.Query("category")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "10"))
 
-	// Build the Elasticsearch query
+	// Build Elasticsearch query with pagination and category filter
 	searchBody := map[string]interface{}{
 		"query": map[string]interface{}{
-			"multi_match": map[string]interface{}{
-				"query":  query,
-				"fields": []string{"name", "description", "category.name"},
+			"bool": map[string]interface{}{
+				"must": []map[string]interface{}{
+					{"multi_match": map[string]interface{}{
+						"query":  query,
+						"fields": []string{"name", "description", "category.name"},
+					}},
+				},
+				"filter": []map[string]interface{}{
+					{"term": map[string]interface{}{"category.id": categoryID}},
+				},
 			},
 		},
+		"from": (page - 1) * size,
+		"size": size,
 	}
 
 	// Serialize the query to JSON
@@ -281,5 +269,5 @@ func RegisterRoutes(r *gin.RouterGroup) {
 	r.GET("/orders/:orderId", getOrderByID)
 	r.GET("/customers/:customerId", getCustomerByID)
 	r.GET("/customers/:customerId/orders", getCustomerOrders)
-	r.GET("/products/search", searchProducts) // Add search endpoint
+	r.GET("/products/search", searchProducts)
 }
