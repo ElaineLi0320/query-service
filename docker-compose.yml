@@ -46,10 +46,32 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
       - "9092:9092"
+    restart: always
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: query-service-api
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+      - redis
+      - elasticsearch
+      - kafka
+    environment:
+      MONGO_URI: mongodb://mongodb:27017
+      REDIS_URI: redis://redis:6379
+      ELASTICSEARCH_URI: http://elasticsearch:9200
+      KAFKA_BROKER: kafka:9092
+    volumes:
+      - .:/app
     restart: always
 
 volumes:
