@@ -42,9 +42,9 @@ func getProductByID(c *gin.Context) {
 		return
 	}
 
-	// Cache the product in Redis with a 10-minute expiration
+	// Cache the product in Redis with a 1-hour expiration
 	productJSON, _ := json.Marshal(product)
-	cache.RedisClient.Set(ctx, cacheKey, productJSON, 10*time.Minute)
+	cache.RedisClient.Set(ctx, cacheKey, productJSON, time.Hour)
 
 	// Return the product from MongoDB
 	c.JSON(http.StatusOK, gin.H{"source": "database", "data": product})
